@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nightreign Weapon Drops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0b111c; --surface:#121a29; --surface2:#182235; --line:#232e45; --line2:#3a4a6c;
+    --text:#e4e8f1; --dim:#9aa5bb; --faint:#66718a; --hi:#dce6ff; --glow:#9cbcff; --gold:#e6cf95;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  }
+  * { box-sizing:border-box; scrollbar-color:#3a4a6c transparent; scrollbar-width:thin; }
+  html, body { margin:0; }
+  body { color:var(--text); font:17px/1.4 "EB Garamond", Garamond, Georgia, serif; min-height:100vh;
+         background:radial-gradient(1400px 700px at 50% 120%, #22304d80, transparent 65%), var(--bg) fixed; }
+  /* Deep of Night: colder, darker abyss blue */
+  body.deep { --glow:#3d8bff; --hi:#cfe1ff; --dim:#8396b8; --faint:#56647f; --bg:#03060d; --surface:#07101f; --surface2:#0b172d;
+              --line:#11203b; --line2:#1c3766;
+              background:radial-gradient(1400px 700px at 50% 120%, #0a2a6a66, transparent 65%), radial-gradient(900px 500px at 50% -15%, #0b1d4a55, transparent 70%), var(--bg) fixed; }
+  img { display:block; }
+  button, input { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  :focus-visible { outline:2px solid var(--glow); outline-offset:2px; }
+  svg.i { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  /* layout: setup | results | weapon browser */
+  .layout { display:grid; grid-template-columns:340px minmax(0, 1fr) 400px; gap:var(--s6); max-width:1880px; margin:0 auto; padding:var(--s5); align-items:start; }
+  .col { position:sticky; top:var(--s5); max-height:calc(100vh - 2 * var(--s5)); overflow:auto; }
+  .browser { display:flex; flex-direction:column; height:calc(100vh - 2 * var(--s5)); overflow:hidden; }
+  @media (max-width:1400px) {
+    .layout { grid-template-columns:320px minmax(0, 1fr); }
+    .browser { grid-column:1 / -1; grid-row:1; position:static; height:auto; }
+    .browser .grid { max-height:300px; }
+  }
+  @media (max-width:900px) {
+    .layout { grid-template-columns:1fr; padding:var(--s4); gap:var(--s5); }
+    .col { position:static; max-height:none; }
+    .browser { grid-row:auto; }
+  }
+  h3 { margin:0 0 var(--s2); font-size:13px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); }
+  section + section { margin-top:var(--s5); }
+  .col section + section { margin-top:16px; }  /* sidebar a touch tighter */
+
+  .tile { display:grid; place-items:center; flex:none; position:relative; background:linear-gradient(160deg, var(--surface2), var(--surface));
+          border:1px solid var(--line); box-shadow:inset 0 0 14px #0008; }
+  .tile img { width:84%; height:84%; object-fit:contain; }
+  .tile.glyph img { width:62%; height:62%; filter:drop-shadow(0 0 4px #b8ceff99); }
+  /* rarity backing, like the game's item frames: grey, blue, purple, gold */
+  .r0 { --r:#9aa0ab; } .r1 { --r:#4f86e8; } .r2 { --r:#a565e8; } .r3 { --r:#e2b04f; }
+  .tile[class*=" r"] { background:linear-gradient(0deg, color-mix(in srgb, var(--r) 38%, transparent), transparent 70%), linear-gradient(160deg, var(--surface2), var(--surface));
+                       border-bottom:2px solid color-mix(in srgb, var(--r) 80%, transparent); }
+  .rar { color:var(--r); }
+  .sel { border-color:var(--hi) !important; box-shadow:0 0 0 1px #000a, 0 0 14px color-mix(in srgb, var(--glow) 55%, transparent), inset 0 0 14px #0008 !important; }
+
+  /* setup column */
+  .heroname { font-size:22px; color:var(--hi); margin-bottom:var(--s2); }
+  .heroes { display:grid; grid-template-columns:repeat(5, 1fr); gap:var(--s1); }
+  .hero { aspect-ratio:1; padding:0; overflow:hidden; background:var(--surface); border:1px solid var(--line); position:relative; }
+  .hero > img { width:100%; height:100%; object-fit:cover; object-position:50% 22%; }
+  .hero:hover { border-color:var(--line2); }
+
+  .toggle { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s2) var(--s3); text-align:left; font-size:17px;
+            background:var(--surface); border:1px solid var(--line); }
+  .toggle:hover { border-color:var(--line2); }
+  .toggle .box { width:22px; height:22px; flex:none; border:1px solid var(--line2); background:var(--bg); display:grid; place-items:center; }
+  .toggle .box img { width:26px; height:26px; margin:-4px -2px 0 0; visibility:hidden; }
+  .toggle[aria-pressed="true"] .box img { visibility:visible; }
+  .toggle .glyph { width:22px; height:22px; margin-left:auto; opacity:.8; }
+
+  .disc { display:flex; align-items:center; gap:var(--s3); }
+  .step { display:flex; flex:none; border:1px solid var(--line); background:var(--surface); }
+  .step button { width:34px; border:0; background:none; color:var(--dim); font-size:20px; line-height:1; }
+  .step button:hover { color:var(--hi); }
+  .disc input { width:52px; padding:var(--s2) 0; text-align:center; background:none; border:0; color:var(--hi); font-size:18px; -moz-appearance:textfield; appearance:textfield; }
+  .disc input::-webkit-inner-spin-button, .disc input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+  .disc input:focus, .disc input:focus-visible { outline:none; }
+  .disc span { color:var(--faint); font-size:14px; line-height:1.25; }
+  .seg { display:flex; border:1px solid var(--line); background:var(--surface); }
+  .seg button { flex:1; display:flex; gap:var(--s2); align-items:center; justify-content:center; padding:var(--s2) var(--s3); border:0; background:none; color:var(--dim); font-size:16px; white-space:nowrap; }
+  .seg button + button { border-left:1px solid var(--line); }
+  .seg button:hover { color:var(--text); }
+  .seg button[aria-pressed="true"] { color:var(--hi); background:color-mix(in srgb, var(--glow) 16%, transparent); text-shadow:0 0 10px var(--glow); }
+
+  .maps { display:grid; gap:2px; }
+  .map { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s1) var(--s3) var(--s1) var(--s1); text-align:left; font-size:16.5px;
+         background:none; border:1px solid transparent; }
+  .map .tile { width:36px; height:36px; background:var(--art) center/cover, var(--surface); }
+  .map .v { margin-left:auto; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .map:hover { background:var(--surface); }
+  .map[aria-pressed="true"] { background:var(--surface2); border-color:var(--line2); }
+  .map[aria-pressed="true"] .v { color:var(--hi); }
+  .map.none { color:var(--faint); }
+
+  /* results column */
+  .head { display:flex; gap:var(--s5); align-items:center; padding-bottom:var(--s5); }
+  .head .tile { width:120px; height:120px; }
+  .head .type { display:flex; align-items:center; gap:var(--s2); color:var(--dim); font-size:15px; }
+  .head .type img { width:18px; height:18px; }
+  .head h1 { margin:2px 0 var(--s3); font-size:34px; font-weight:500; line-height:1.05; color:var(--hi); }
+  .best { margin-left:auto; text-align:right; }
+  .best b { display:block; font-size:44px; font-weight:500; line-height:1; color:var(--hi); text-shadow:0 0 16px color-mix(in srgb, var(--glow) 50%, transparent); font-variant-numeric:tabular-nums; }
+  .best span { color:var(--dim); font-size:14px; letter-spacing:.08em; text-transform:uppercase; }
+  .fx { display:flex; gap:var(--s1); }
+  .fx button { min-width:34px; height:34px; padding:0 var(--s2); display:grid; place-items:center; background:var(--surface); border:1px solid var(--line); color:var(--dim); font-size:15px; }
+  .fx button img { width:24px; height:24px; }
+  .fx button:hover:not(:disabled) { border-color:var(--line2); color:var(--text); }
+  .fx button[aria-pressed="true"] { color:var(--hi); border-color:var(--hi); background:color-mix(in srgb, var(--glow) 16%, transparent); }
+  .fx button:disabled { opacity:.22; cursor:default; filter:grayscale(1); }
+
+  .toolbar { display:flex; gap:var(--s3); align-items:center; flex-wrap:wrap; margin-bottom:var(--s3); }
+  .toolbar .seg { flex:none; }
+  .toolbar .seg b { font-weight:400; color:var(--faint); font-size:14px; }
+  .search { flex:1; min-width:180px; display:flex; align-items:center; gap:var(--s2); padding:0 var(--s3); height:40px; background:var(--surface); border:1px solid var(--line); color:var(--faint); }
+  .search:focus-within { border-color:var(--line2); color:var(--dim); }
+  .search input { flex:1; min-width:0; border:0; outline:0; background:none; font-size:16.5px; }
+  .search input::placeholder { color:var(--faint); }
+
+  .rows { display:grid; gap:var(--s1); }
+  .row { display:grid; grid-template-columns:72px minmax(0, 1fr) auto; gap:var(--s4); align-items:center; padding:var(--s2) var(--s4) var(--s2) var(--s2);
+         background:var(--surface); border:1px solid transparent; }
+  .row:hover { border-color:var(--line2); }
+  .row .tile { width:72px; height:72px; }
+  .row .tile .place { width:62%; height:62%; }
+  .row .tile .place[src*="icons/map/"] { width:100%; height:100%; object-fit:cover; }
+  .row .aff { position:absolute; right:-6px; bottom:-6px; width:28px; height:28px; background:#000; border:1px solid #000; }
+  .who { font-size:19px; line-height:1.2; }
+  .more { display:inline-flex; align-items:center; gap:2px; margin-left:var(--s1); padding:0 var(--s2); border:1px solid var(--line); background:var(--surface2); color:var(--dim); font-size:15px; vertical-align:2px; }
+  .more:hover { border-color:var(--line2); color:var(--text); }
+  .more svg.i { width:14px; height:14px; transition:transform .15s; }
+  .more[aria-expanded="true"] svg.i { transform:rotate(180deg); }
+  .others { margin:var(--s2) 0 var(--s1); font-size:16px; line-height:1.6; color:var(--text); }
+  .others .sep { color:var(--faint); margin:0 var(--s2); }
+  .others[hidden] { display:none; }
+  .where { color:var(--dim); font-size:15px; margin-top:2px; display:flex; gap:var(--s3); flex-wrap:wrap; align-items:center; }
+  .where .only { color:var(--gold); }
+  .pct { font-size:26px; color:var(--hi); font-variant-numeric:tabular-nums; cursor:default; }
+  .empty { color:var(--dim); text-align:center; padding:60px 0; }
+  .showmore { display:block; margin:var(--s4) auto 0; padding:var(--s2) var(--s5); background:var(--surface); border:1px solid var(--line); color:var(--hi); }
+  .showmore:hover { border-color:var(--line2); }
+
+  [hidden] { display:none !important; }
+  .view { margin-bottom:16px; }
+  .head .places { color:var(--dim); font-size:15.5px; max-width:640px; }
+  .head .places .sep, .wrow .sep { color:var(--faint); margin:0 var(--s2); }
+  .wrow { cursor:pointer; }
+  .wrow .tile img { width:84%; height:84%; }
+  .wrow .sub { color:var(--dim); font-size:15px; margin-top:2px; }
+
+  .cols { display:grid; grid-template-columns:repeat(var(--n), minmax(0, 1fr)); gap:var(--s4); align-items:start; }
+  .cols h3 { margin:0 0 var(--s2); font-size:13px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  .cols .row { grid-template-columns:56px minmax(0, 1fr) auto; }
+  .cols .row .tile { width:56px; height:56px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+
+  /* boss list */
+  .blist { flex:1; min-height:0; overflow:auto; display:grid; gap:2px; align-content:start; margin-top:var(--s3); }
+  .boss { display:flex; align-items:center; gap:var(--s3); width:100%; padding:var(--s1) var(--s3) var(--s1) var(--s1); text-align:left; background:none; border:1px solid transparent; }
+  .boss .tile { width:44px; height:44px; }
+  .boss .tile img { width:66%; height:66%; }
+  .boss .t { display:block; font-size:16.5px; line-height:1.2; }
+  .boss .s { display:block; font-size:14px; color:var(--dim); }
+  .boss:hover { background:var(--surface); }
+  .boss.sel { background:var(--surface2); }
+  .browse { display:flex; flex-direction:column; flex:1; min-height:0; }
+
+  /* weapon browser */
+  .browser .search { flex:none; }
+  .types { display:grid; grid-template-columns:repeat(9, 1fr); gap:3px; margin:var(--s3) 0; }
+  .types button { aspect-ratio:1; min-width:0; padding:0; display:grid; place-items:center; background:var(--surface); border:1px solid var(--line); color:var(--dim); font-size:14px; }
+  .types button img { width:24px; height:24px; filter:drop-shadow(0 0 3px #b8ceff77); }
+  .types button:hover { border-color:var(--line2); }
+  .types button[aria-pressed="true"] { border-color:var(--hi); color:var(--hi); background:color-mix(in srgb, var(--glow) 16%, transparent); }
+  .grid { flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:var(--s1); align-content:start; padding-right:2px; }
+  .grid button { aspect-ratio:1; width:100%; padding:0; }
+  .grid button:hover { border-color:var(--line2); }
+  .grid .brk { grid-column:1 / -1; height:var(--s2); }
+  .grid .none { grid-column:1 / -1; color:var(--dim); padding:var(--s5) 0; text-align:center; }
+
+  @media (max-width:700px) {
+    .head { flex-wrap:wrap; gap:var(--s4); } .head .tile { width:88px; height:88px; } .head h1 { font-size:28px; }
+    .best { margin-left:0; text-align:left; } .best b { font-size:36px; }
+    .row { grid-template-columns:56px minmax(0, 1fr) auto; gap:var(--s3); } .row .tile { width:56px; height:56px; } .who { font-size:17px; } .pct { font-size:21px; }
+    .fx { flex-wrap:wrap; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15A8 8 0 1 1 10 4a7 7 0 0 0 10 11z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></symbol>
+  </defs>
+</svg>
+
+<div class="layout">
+  <aside class="col">
+    <div class="seg view" id="view"></div>
+    <section><div class="heroname" id="heroname"></div><div class="heroes" id="heroes"></div></section>
+    <section><h3>Relic</h3>
+      <button class="toggle" id="relicq" aria-pressed="false"><span class="box"><img src="icons/ui/check.webp" alt=""></span><span id="relicq-t"></span><img class="glyph" id="relicq-g" alt=""></button></section>
+    <section><h3>Discovery</h3><div class="disc"><div class="step"><button id="discm" aria-label="Less discovery">−</button><input id="disc" type="number" min="100" max="400" step="10" inputmode="numeric"><button id="discp" aria-label="More discovery">+</button></div>
+      <span>Base 100. Eagle Eye +30, Silver Scarab +40, Symbol of Avarice +60, Fowl Foot +30</span></div></section>
+    <section><h3>Expedition</h3><div class="seg" id="mode"></div></section>
+    <section><h3>Map</h3><div class="maps" id="maps"></div></section>
+  </aside>
+
+  <main>
+   <div id="wview">
+    <div class="head" id="head"></div>
+    <div class="toolbar">
+      <div class="seg" id="chips"></div>
+      <label class="search"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" placeholder="Filter by boss or place"></label>
+    </div>
+    <div class="rows" id="out"></div>
+   </div>
+   <div id="bview" hidden>
+    <div class="head" id="bhead"></div>
+    <div class="toolbar"><label class="search"><svg class="i"><use href="#i-search"/></svg><input id="bq" type="search" placeholder="Filter weapons"></label></div>
+    <div class="rows" id="bout"></div>
+   </div>
+  </main>
+
+  <aside class="col browser">
+   <div class="browse" id="wbrowse">
+    <label class="search"><svg class="i"><use href="#i-search"/></svg><input id="weapon" type="search" placeholder="Search weapons" autocomplete="off" spellcheck="false"></label>
+    <div class="types" id="wtypes"></div>
+    <div class="grid" id="wgrid"></div>
+   </div>
+   <div class="browse" id="bbrowse" hidden>
+    <label class="search"><svg class="i"><use href="#i-search"/></svg><input id="bsearch" type="search" placeholder="Search bosses" autocomplete="off" spellcheck="false"></label>
+    <div class="blist" id="blist"></div>
+   </div>
+  </aside>
+</div>
+
+<script src="data.js"></script>
+<script>
+const D = window.NR, $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const svg = id => `<svg class="i"><use href="#i-${id}"/></svg>`;
+const img = (src, cls = "", alt = "") => `<img src="${src}" class="${cls}" alt="${esc(alt)}" loading="lazy">`;
+// Game icons, exported by extract/icons.py.
+const PLACE_ICON = { "Fort":"MAP_07", "Western Underground Fort":"MAP_42045_075", "Eastern Underground Fort":"MAP_42044_074", "Old Sorcerer's Rise":"MenuIcon_42021", "Main Encampment":"MAP_10", "Small Encampment":"MAP_08",
+  "Ruins":"MAP_03", "Great Church":"MAP_24", "Church":"MAP_02", "Sorcerer's Rise":"MAP_06", "Castle":"MAP_11", "Caravan":"MAP_124",
+  "Marsh":"MAP_42047_077", "Blacksmith Village":"MAP_42048_078", "Township":"MAP_04", "Evergaol":"MAP_05", "Field Boss":"MAP_16",
+  "Night Boss":"MAP_28", "Night Horde":"MAP_28", "Shifting Earth Boss":"MAP_41", "Nightlord Arena":"MAP_40",
+  "Event":"MAP_175", "Map Event":"MAP_175" };
+const AFF_ICON = { "Holy":"PropertyIcon_40145", "Magic":"PropertyIcon_40146", "Fire":"PropertyIcon_40148", "Lightning":"PropertyIcon_40150",
+  "Blood Loss":"RE_bleed", "Frost":"RE_Cold", "Death Blight":"RE_Death", "Madness":"RE_Mad", "Scarlet Rot":"RE_Plague",
+  "Poison":"RE_Poison", "Sleep":"RE_Sleep" };
+const MAPS = [["All maps", "all"], ["Limveld", "limveld"], ["Mountaintop", "Mountaintop"], ["The Crater", "The Crater"],
+  ["Rotted Woods", "Rotted Woods"], ["Noklateo", "Noklateo"], ["Great Hollow", "Great Hollow"]];
+const mapArt = k => `icons/map/${k.replace(/ /g, "_")}.webp`;
+// Event bosses (Fallingstar Beast, Libra) get the game's major-boss marker; roaming overworld enemies have no marker.
+// Corpses and chests use their own markers (user's pick) instead of the place's.
+const LOOT_ICON = { "Corpse":"MAP_180", "Chest":"MAP_62", "Statue":"MAP_161", "Shack":"MAP_135" };
+const isOpenRack = r => r.kind === "loot" && r.where === "Open world" && r.whos[0].startsWith("Bow Rack");  // watchtower racks have their own marker
+const placeIcon = r => {
+  // High-tier field bosses share the red event-boss marker (user's pick).
+  const k = r.kind === "reward" && (/Event$/.test(r.where) || r.tag === "High-tier field boss") ? "MAP_28" : isOpenRack(r) ? "MAP_132" : r.kind === "loot" && LOOT_ICON[r.whos[0].split(" (")[0]] || PLACE_ICON[r.where];
+  return k ? `icons/place/${k}.webp` : r.where === "Great Hollow" ? mapArt("Great Hollow") : "";
+};
+const typeIcon = t => `icons/type/${t}.webp`;
+const KINDS = [["all", "All"], ["reward", "Bosses"], ["kill", "Enemies"], ["loot", "Chests"]];
+const kindOf = how => how.startsWith("Reward pick") ? "reward" : how === "Kill drop" ? "kill" : "loot";
+const fmt = p => p >= 10 ? p.toFixed(1) : p.toFixed(2);
+const pressed = on => `aria-pressed="${on}"`;
+
+const store = { get: k => { try { return localStorage.getItem("nr." + k); } catch { return null; } },
+                set: (k, v) => { try { localStorage.setItem("nr." + k, v); } catch {} } };
+
+// ---- weapon catalogue -------------------------------------------------------------------------------------------
+// Weapon ids: base + 0 plain, +500 Fire ... +1100 Blood. The variant is a second pick, not its own weapon.
+const EFFECTS = [["", "Any"], ["0", "Plain"], ["500", "Fire", "Fire"], ["600", "Lightning", "Lightning"], ["700", "Sacred", "Holy"],
+  ["800", "Magic", "Magic"], ["900", "Cold", "Frost"], ["1000", "Poison", "Poison"], ["1100", "Blood", "Blood Loss"]];
+const byName = {}, typeFx = {};
+for (const [id, [name, type, icon]] of Object.entries(D.weapons)) {
+  const base = id - id % 10000, fx = String(id % 10000);
+  (typeFx[type] ??= new Set()).add(fx);
+  if (fx === "0") byName[name] ??= { name, type, icon, base, rarity: D.weapons[id][3], fx: new Set() };
+}
+const byBase = Object.fromEntries(Object.values(byName).map(w => [w.base, w]));
+for (const id of Object.keys(D.weapons)) byBase[id - id % 10000]?.fx.add(String(id % 10000));
+const CATALOG = [...Object.entries(D.types).map(([k, t]) => ({ name: `${t} (any)`, type: +k, isType: true })),
+                 ...Object.values(byName).sort((a, b) => a.type - b.type || a.rarity - b.rarity || a.name.localeCompare(b.name))];
+const RARITY = ["Common", "Uncommon", "Rare", "Legendary"];
+const rarityOf = w => w.isType ? null : (D.weapons[w.base + +(effect || 0)] || D.weapons[w.base])[3];
+const findWeapon = q => CATALOG.find(w => w.name.toLowerCase() === q.trim().toLowerCase());
+const weaponImg = w => w.isType ? typeIcon(w.type) : `icons/w/${w.icon}.webp`;
+const has = (words, ...texts) => words.every(x => texts.some(t => t.toLowerCase().includes(x)));
+
+// ---- state ------------------------------------------------------------------------------------------------------
+let weapon = findWeapon(store.get("weapon") || "") || findWeapon("Serpent-Hunter");
+let effect = store.get("effect") ?? "";
+// The relic toggle is "Helps discover <this weapon's type>": the only discovery relic that helps the weapon you're after.
+let hero = +(store.get("hero") || 1), useRelic = !!store.get("relic"), mode = store.get("expedition") || "deep";  // new key: Deep of Night became the default
+let view = store.get("view") === "boss" ? "boss" : "weapon", bossSel = store.get("boss") || "", blimit = 100;
+// Discovery scales the weight of a lot's luck-flagged slots: chance = BD / (1 - B + BD), as in Elden Ring.
+let disc = Math.max(100, +store.get("disc") || 100);
+const wt = s => s[2] * (s[3] ? disc / 100 : 1);
+let mapSel = store.get("map") || "all", kind = store.get("kind") || "all", limit = 100, gtype = "";
+if (!MAPS.some(m => m[1] === mapSel)) mapSel = "all";
+if (!KINDS.some(k => k[0] === kind)) kind = "all";
+const fxOf = w => w.isType ? typeFx[w.type] : w.fx;
+if (effect && !fxOf(weapon).has(effect)) effect = "";
+const shownName = () => weapon.isType ? D.types[weapon.type] : !effect ? weapon.name : D.weapons[weapon.base + +effect][0];
+
+// Pool row counts if: character row -> only for that character and only without a discovery relic;
+// discovery row -> only with the relic for that weapon type; anything else -> always.
+const ok = ([, , , cls, wtd], hero, relic) =>
+  cls ? cls === hero && relic === null : (wtd >= 0 && wtd < 1000) ? relic === wtd : true;
+
+function chance(match, hero, relic) { // lot key -> probability that one roll gives a matching weapon
+  const memo = {};
+  const pool = (pid, d = 0) => {
+    if (pid in memo) return memo[pid];
+    const rows = (D.pools[pid] || []).filter(r => ok(r, hero, relic)), tot = rows.reduce((s, r) => s + r[2], 0);
+    let p = 0;
+    if (tot && d < 9) for (const r of rows) p += r[2] / tot * (r[0] === "7" ? pool(r[1], d + 1) : r[0] === "6" && match(r[1]) ? 1 : 0);
+    return memo[pid] = p;
+  };
+  const out = {};
+  for (const [key, slots] of Object.entries(D.lots)) {
+    const tot = slots.reduce((s, x) => s + wt(x), 0) || 1;
+    out[key] = slots.reduce((s, x) => s + wt(x) / tot * (x[0] === "7" ? pool(x[1]) : x[0] === "6" && match(x[1]) ? 1 : 0), 0);
+  }
+  return out;
+}
+
+// One entry per boss (its reward choices folded together), kill drop or chest.
+function entries() {
+  const match = id => D.weapons[id] && (effect === "" || String(id % 10000) === effect) &&
+    (weapon.isType ? D.weapons[id][1] === weapon.type : id - id % 10000 === weapon.base);
+  const p = chance(match, hero, useRelic ? weapon.type : null);
+  const groups = new Map();
+  for (const [where, map, md, aff, share, tag, who, how, key] of D.sources) {
+    if (md !== "both" && md !== mode) continue;
+    // Same boss in the same spot can be placed more than once (separate lots): a repeated choice number starts a new entry.
+    const k = kindOf(how), base = [where, map, md, aff, share, tag, who, k === "reward" ? "" : how].join("|");
+    let n = 0, g;
+    while ((g = groups.get(base + "|" + n)) && g.picks.some(x => x[0] === how)) n++;
+    if (!g) groups.set(base + "|" + n, g = { where, map, mode: md, aff, share, tag, who, kind: k, picks: [] });
+    g.picks.push([how, p[key] * 100]);
+  }
+  // Bosses that share a place, element and identical odds (e.g. every low-tier field boss) become one entry.
+  const merged = new Map();
+  for (const g of groups.values()) {
+    g.picks.sort((a, b) => a[0].localeCompare(b[0]));
+    g.pct = 100 * (1 - g.picks.reduce((s, [, x]) => s * (1 - x / 100), 1));  // at least one choice hits
+    if (!(g.pct > 0)) continue;
+    const id = [g.where, g.map, g.mode, g.aff, g.share, g.tag, g.kind, g.picks.map(([h, x]) => h + x.toFixed(4))].join("|");
+    const m = merged.get(id);
+    if (!m) merged.set(id, { ...g, whos: [g.who] });
+    else if (!m.whos.includes(g.who)) m.whos.push(g.who);
+  }
+  return [...merged.values()].sort((a, b) => b.pct - a.pct || b.whos.length - a.whos.length);
+}
+
+// ---- per boss: full weapon distribution of each reward choice / kill drop ----------------------------------------
+function lotDist(hero, relic) {  // -> lot key -> Map(weapon id -> chance one roll gives it)
+  const memo = {};
+  const add = (m, i, p) => m.set(i, (m.get(i) || 0) + p);
+  const pool = (pid, d = 0) => {
+    if (memo[pid]) return memo[pid];
+    const m = memo[pid] = new Map(), rows = (D.pools[pid] || []).filter(r => ok(r, hero, relic)), tot = rows.reduce((s, r) => s + r[2], 0);
+    if (tot && d < 9) for (const r of rows) {
+      if (r[0] === "7") for (const [i, p] of pool(r[1], d + 1)) add(m, i, r[2] / tot * p);
+      else if (r[0] === "6" && D.weapons[r[1]]) add(m, r[1], r[2] / tot);
+    }
+    return m;
+  };
+  return key => {
+    const slots = D.lots[key] || [], tot = slots.reduce((s, x) => s + wt(x), 0) || 1, m = new Map();
+    for (const x of slots) {
+      const [c, i] = x, pts = wt(x);
+      if (c === "7") for (const [j, p] of pool(i)) add(m, j, pts / tot * p);
+      else if (c === "6" && D.weapons[i]) add(m, i, pts / tot);
+    }
+    return m;
+  };
+}
+
+// One entry per boss name and drop table; the places it shows up with that table are listed together.
+function bosses() {
+  const spots = new Map();
+  for (const [where, map, md, aff, , tag, who, how, key] of D.sources) {
+    const k = kindOf(how);
+    if (k === "loot" || (md !== "both" && md !== mode) || !(mapSel === "all" || onMap(mapSel)({ map }))) continue;
+    const id = [who, k, where, map, aff, tag].join("|");
+    const sp = spots.get(id) || spots.set(id, { who, kind: k, where, map, aff, tag, picks: {} }).get(id);
+    sp.picks[how] = key;
+  }
+  const out = new Map();
+  for (const sp of spots.values()) {
+    const sig = Object.entries(sp.picks).sort().map(x => x.join(":")).join(",");
+    const id = sp.who + "|" + sp.kind + "|" + sig;
+    const b = out.get(id) || out.set(id, { id, who: sp.who, kind: sp.kind, tag: sp.tag, picks: sp.picks, spots: [] }).get(id);
+    b.spots.push(sp);
+  }
+  return [...out.values()].sort((a, b) => a.who.localeCompare(b.who) || b.spots.length - a.spots.length);
+}
+const spotName = sp => (sp.aff && sp.aff !== "Untyped" ? sp.aff + " " : "") + (/boss$/.test(sp.tag) && !/^Shifting/.test(sp.tag) ? sp.tag[0].toUpperCase() + sp.tag.slice(1) : sp.where) + (sp.map && sp.map !== sp.where ? ` (${sp.map})` : "");
+
+let BOSSES = [], bshown = [];
+function drawBossList() {
+  const words = $("bsearch").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  bshown = BOSSES.filter(b => has(words, b.who, ...b.spots.map(spotName)));
+  $("blist").innerHTML = bshown.map((b, i) => {
+    const sp = b.spots[0], ico = placeIcon({ kind: b.kind, where: sp.where, tag: sp.tag, whos: [b.who] });
+    return `<button class="boss${b.id === bossSel ? " sel" : ""}" data-i="${i}"><span class="tile">${ico ? img(ico, "", sp.where) : ""}</span>
+      <span><span class="t">${esc(b.who)}</span><span class="s">${esc(spotName(sp))}${b.spots.length > 1 ? ` + ${b.spots.length - 1} more` : ""}</span></span></button>`;
+  }).join("") || `<div class="none">No boss matches</div>`;
+}
+
+function drawBoss() {
+  const b = BOSSES.find(x => x.id === bossSel) || BOSSES.find(x => x.kind === "reward") || BOSSES[0];
+  if (!b) { $("bhead").innerHTML = ""; $("bout").innerHTML = `<p class="empty">No boss on this map.</p>`; return; }
+  bossSel = b.id;
+  const dist = lotDist(hero, useRelic ? weapon.type : null);
+  const picks = Object.entries(b.picks).sort().filter(([, key]) => dist(key).size);  // most third choices are passives only
+  // Per base weapon: chance per choice (element versions summed), then the chance at least one choice is it.
+  const per = new Map();
+  picks.forEach(([, key], c) => { for (const [id, p] of dist(key)) {
+    const w = byBase[id - id % 10000]; if (!w) continue;
+    const e = per.get(w) || per.set(w, picks.map(() => 0)).get(w); e[c] += p;
+  } });
+  const f = $("bq").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const cols = picks.map((_, c) => [...per].map(([w, ps]) => ({ w, pct: 100 * ps[c] }))
+    .filter(r => r.pct > 0 && has(f, r.w.name, D.types[r.w.type])).sort((x, y) => y.pct - x.pct || x.w.name.localeCompare(y.w.name)));
+  const sp = b.spots[0], ico = placeIcon({ kind: b.kind, where: sp.where, tag: sp.tag, whos: [b.who] });
+  $("bhead").innerHTML = `<span class="tile">${ico ? img(ico, "place", sp.where) : ""}</span>
+    <div><div class="type">${b.kind !== "reward" ? "Drops on kill" : picks.length ? `Weapons in ${picks.map(([h]) => h.replace("Reward pick", "choice")).join(" and ")}` : "No weapon choice"}</div>
+      <h1>${esc(b.who)}</h1>
+      <div class="places">${b.spots.map(x => esc(spotName(x))).join(`<span class="sep">–</span>`)}</div></div>
+    <div class="best"><span>Weapons</span><b>${per.size}</b></div>`;
+  const rowHtml = r => `<div class="row wrow" data-base="${r.w.base}"><span class="tile r${r.w.rarity}">${img(weaponImg(r.w), "", r.w.name)}</span>
+      <div><div class="who">${esc(r.w.name)}</div><div class="sub">${esc(D.types[r.w.type])}<span class="sep">·</span><span class="rar r${r.w.rarity}">${RARITY[r.w.rarity]}</span></div></div>
+      <div class="pct" title="${r.pct.toFixed(3)}%">${fmt(r.pct)}%</div></div>`;
+  const more = Math.max(...cols.map(c => c.length)) - blimit;
+  $("bout").innerHTML = cols.some(c => c.length) ? `<div class="cols" style="--n:${cols.length}">${cols.map((c, k) =>
+      `<div>${b.kind === "reward" ? `<h3>${picks[k][0].replace("Reward pick", "Choice")}</h3>` : ""}<div class="rows">${c.slice(0, blimit).map(rowHtml).join("")}</div></div>`).join("")}</div>`
+      + (more > 0 ? `<button class="showmore" id="bmore">Show ${Math.min(100, more)} more</button>` : "")
+    : `<p class="empty">${picks.length ? "No weapon matches." : `No weapon from this boss in ${mode === "deep" ? "Deep of Night" : "Normal"} expeditions.`}</p>`;
+  $("bmore")?.addEventListener("click", () => { blimit += 100; draw(); });
+}
+
+const onMap = k => r => !r.map || r.map === (k === "limveld" ? "" : k);
+
+// Long lists (e.g. every low-tier field boss) show the first name and expand to the rest in place.
+function whoText(whos) {
+  if (whos.length <= 2) return `<div class="who">${whos.map(esc).join(", ")}</div>`;
+  return `<div class="who">${esc(whos[0])} <button class="more" aria-expanded="false">and ${whos.length - 1} others<svg class="i"><use href="#i-down"/></svg></button></div>`;
+}
+
+function rowHtml(r) {
+  const aff = AFF_ICON[r.aff], ico = placeIcon(r);
+  const place = /boss$/.test(r.tag) && !/^Shifting/.test(r.tag) ? r.tag[0].toUpperCase() + r.tag.slice(1) : r.where;
+  // Boss rewards offer several choices; the number is the chance at least one of them is this weapon (each choice in the tooltip).
+  const tip = r.kind === "reward" ? "\n" + r.picks.map(([how, x]) => `Choice ${how.slice(-1)}: ${x.toFixed(3)}%`).join("\n") : "";
+  return `<div class="row"><span class="tile">${ico ? img(ico, "place", r.where) : ""}${aff ? img(`icons/aff/${aff}.webp`, "aff", r.aff) : ""}</span>
+    <div>${whoText(r.whos)}
+      <div class="where"><span>${r.aff && r.aff !== "Untyped" ? esc(r.aff) + " " : ""}${esc(place)}</span>${r.map && r.map !== r.where ? `<span class="only">${esc(r.map)} only</span>` : ""}</div>
+      ${r.whos.length > 2 ? `<div class="others" hidden>${r.whos.slice(1).map(esc).join(`<span class="sep">–</span>`)}</div>` : ""}</div>
+    <div class="pct" title="${r.pct.toFixed(3)}%${tip}">${fmt(r.pct)}%</div></div>`;
+}
+
+// ---- drawing ----------------------------------------------------------------------------------------------------
+function drawSetup(all) {
+  $("heroname").textContent = D.heroes[hero - 1];
+  $("heroes").innerHTML = D.heroes.map((h, i) =>
+    `<button class="hero${hero === i + 1 ? " sel" : ""}" data-h="${i + 1}" title="${esc(h)}" ${pressed(hero === i + 1)}>${img(`icons/hero/${i + 1}.webp`, "", h)}</button>`).join("");
+  $("relicq").setAttribute("aria-pressed", useRelic);
+  $("relicq-t").textContent = `Helps discover ${D.types[weapon.type]}`;
+  $("relicq-g").src = typeIcon(weapon.type);
+  $("mode").innerHTML = [["normal", "Normal", "sun"], ["deep", "Deep of Night", "moon"]].map(([k, l, ic]) =>
+    `<button data-m="${k}" ${pressed(k === mode)}>${svg(ic)}${l}</button>`).join("");
+  document.body.classList.toggle("deep", mode === "deep");
+  $("maps").innerHTML = MAPS.map(([label, k]) => {
+    const b = !all || (k === "all" ? all[0] : all.find(onMap(k)));
+    return `<button class="map${b ? "" : " none"}" data-map="${k}" ${pressed(mapSel === k)}>
+      <span class="tile" ${k !== "all" ? `style="--art:url('${mapArt(k)}')"` : ""}>${k === "all" ? svg("globe") : ""}</span>${label}
+      ${all ? `<span class="v">${b ? fmt(b.pct) + "%" : "—"}</span>` : ""}</button>`;
+  }).join("");
+}
+
+function drawHead(inMap) {
+  const best = inMap[0];
+  const rar = rarityOf(weapon);
+  $("head").innerHTML = `<span class="tile sel${weapon.isType ? " glyph" : ` r${rar}`}">${img(weaponImg(weapon), "", weapon.name)}</span>
+    <div><div class="type">${img(typeIcon(weapon.type))}${esc(D.types[weapon.type])}${weapon.isType ? " · any weapon" : ` · <span class="rar r${rar}">${RARITY[rar]}</span>`}</div>
+      <h1>${esc(shownName())}</h1>
+      <div class="fx">${EFFECTS.map(([k, l, a]) => `<button data-fx="${k}" title="${l}" ${pressed(k === effect)}${k && !fxOf(weapon).has(k) ? " disabled" : ""}>${a ? img(`icons/aff/${AFF_ICON[a]}.webp`, "", l) : l}</button>`).join("")}</div></div>
+    <div class="best"><span>Best chance</span><b>${best ? fmt(best.pct) + "%" : "—"}</b></div>`;
+}
+
+function draw() {
+  for (const [k, v] of Object.entries({ view, boss: bossSel, weapon: weapon.name, effect, hero, relic: useRelic ? "1" : "", disc, expedition: mode, map: mapSel, kind })) store.set(k, v);
+  for (const b of $("wgrid").children) if (b.dataset.i) b.classList.toggle("sel", shown[+b.dataset.i] === weapon);
+  $("view").innerHTML = [["weapon", "By weapon"], ["boss", "By boss"]].map(([k, l]) => `<button data-v="${k}" ${pressed(k === view)}>${l}</button>`).join("");
+  for (const [id, v] of [["wview", "weapon"], ["wbrowse", "weapon"], ["bview", "boss"], ["bbrowse", "boss"]]) $(id).hidden = view !== v;
+  if (view === "boss") {
+    BOSSES = bosses();
+    drawSetup(null);
+    drawBossList();
+    drawBoss();
+    return;
+  }
+  const all = entries(), f = $("q").value.trim().toLowerCase();
+  const inMap = all.filter(r => mapSel === "all" || onMap(mapSel)(r));
+  drawSetup(all);
+  drawHead(inMap);
+  $("chips").innerHTML = KINDS.map(([k, l]) => `<button data-k="${k}" ${pressed(k === kind)}>${l} <b>${k === "all" ? inMap.length : inMap.filter(r => r.kind === k).length}</b></button>`).join("");
+  const rows = inMap.filter(r => (kind === "all" || r.kind === kind) && (!f || [r.where, r.map, r.aff, r.tag, ...r.whos].join(" ").toLowerCase().includes(f)));
+  $("out").innerHTML = rows.length ? rows.slice(0, limit).map(rowHtml).join("") +
+    (rows.length > limit ? `<button class="showmore" id="more">Show ${Math.min(100, rows.length - limit)} more</button>` : "")
+    : `<p class="empty">${all.length ? "Nothing matches." : "This weapon can't drop with this setup."}</p>`;
+  $("more")?.addEventListener("click", () => { limit += 100; draw(); });
+}
+
+// ---- weapon browser: type tabs + search filter the tiles; a type tab also offers "<type> (any)" first ------------
+let shown = [];
+function drawGrid() {
+  const words = $("weapon").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  shown = CATALOG.filter(w => (gtype ? w.type === +gtype : !w.isType) && has(words, w.name, D.types[w.type] || ""));
+  $("wtypes").innerHTML = `<button class="all" data-t="" ${pressed(!gtype)}>All</button>` + Object.entries(D.types).map(([k, t]) =>
+    `<button data-t="${k}" title="${esc(t)}" ${pressed(k === gtype)}>${img(typeIcon(k), "", t)}</button>`).join("");
+  // Each weapon type starts on a new line.
+  $("wgrid").innerHTML = shown.map((w, i) => `${i && w.type !== shown[i - 1].type ? `<div class="brk"></div>` : ""}<button class="tile${w.isType ? " glyph" : ` r${w.rarity}`}${w === weapon ? " sel" : ""}" data-i="${i}" title="${esc(w.name)}${w.isType ? "" : ` (${RARITY[w.rarity]})`}">${img(weaponImg(w), "", w.name)}</button>`).join("")
+    || `<div class="none">No weapon matches</div>`;
+}
+const pickWeapon = w => { weapon = w; if (effect && !fxOf(w).has(effect)) effect = ""; limit = 100; draw(); };
+
+// ---- events -----------------------------------------------------------------------------------------------------
+const on = (id, sel, fn) => $(id).addEventListener("click", e => { const b = e.target.closest(sel); if (b && !b.disabled) fn(b); });
+on("heroes", ".hero", b => { hero = +b.dataset.h; draw(); });
+on("relicq", "button", () => { useRelic = !useRelic; draw(); });
+$("disc").value = disc;
+$("disc").addEventListener("input", e => { const v = +e.target.value; if (v >= 100) { disc = Math.min(400, v); limit = 100; draw(); } });
+for (const [id, d] of [["discm", -10], ["discp", 10]])
+  $(id).addEventListener("click", () => { disc = Math.min(400, Math.max(100, disc + d)); $("disc").value = disc; limit = 100; draw(); });
+on("mode", "button", b => { mode = b.dataset.m; limit = 100; draw(); });
+on("maps", ".map", b => { mapSel = b.dataset.map; limit = 100; draw(); });
+on("head", "[data-fx]", b => { effect = b.dataset.fx; limit = 100; draw(); });
+on("chips", "button", b => { kind = b.dataset.k; limit = 100; draw(); });
+on("wtypes", "button", b => { gtype = b.dataset.t; drawGrid(); });
+on("wgrid", "button", b => pickWeapon(shown[+b.dataset.i]));
+on("out", ".more", b => { const open = b.getAttribute("aria-expanded") !== "true"; b.setAttribute("aria-expanded", open); b.closest(".row").querySelector(".others").hidden = !open; });
+on("view", "button", b => { view = b.dataset.v; draw(); });
+on("blist", ".boss", b => { bossSel = bshown[+b.dataset.i].id; blimit = 100; draw(); });
+on("bout", ".wrow", b => { pickWeapon(byBase[b.dataset.base]); view = "weapon"; draw(); });
+$("bsearch").addEventListener("input", drawBossList);
+$("bq").addEventListener("input", () => { blimit = 100; draw(); });
+$("q").addEventListener("input", () => { limit = 100; draw(); });
+$("weapon").addEventListener("input", drawGrid);
+$("weapon").addEventListener("keydown", e => { if (e.key === "Enter" && shown[0]) pickWeapon(shown[0]); else if (e.key === "Escape") e.target.blur(); });
+document.addEventListener("keydown", e => {
+  if (document.activeElement.tagName === "INPUT" || e.ctrlKey || e.metaKey || e.altKey) return;
+  const target = { "/": "weapon", f: "q" }[e.key.toLowerCase()];
+  if (target) { e.preventDefault(); $(target).focus(); }
+});
+drawGrid();
+draw();
+</script>
+</body>
+</html>
